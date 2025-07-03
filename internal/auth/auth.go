@@ -18,11 +18,10 @@ import (
 )
 
 type Profile struct {
-	ID      int      `json:"id"`
-	Name    string   `json:"name"`
-	Email   string   `json:"email"`
-	Type    int      `json:"type"`
-	History []string `json:"history"`
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Type  int    `json:"type"`
 }
 
 const (
@@ -107,7 +106,7 @@ func SignUp(c *gin.Context) {
 	}
 
 	var information map[string]string
-	json.NewDecoder(c.Request.Body).Decode(&information) //name, email, password, type
+	json.NewDecoder(c.Request.Body).Decode(&information) //name, email, password
 
 	err = CreateAuthTable(conn)
 	if err != nil {
@@ -229,7 +228,6 @@ func GetCurrentProfile(c *gin.Context) {
 	}
 
 	var name, email string
-	var history []string
 	err = conn.QueryRow(context.Background(), "select name, email from authentication where id = $1", id).Scan(&name, &email)
 	if err != nil {
 		log.Println(err)
@@ -238,11 +236,10 @@ func GetCurrentProfile(c *gin.Context) {
 	}
 
 	UserProfile := Profile{
-		ID:      id,
-		Name:    name,
-		Email:   email,
-		Type:    accountType,
-		History: history,
+		ID:    id,
+		Name:  name,
+		Email: email,
+		Type:  accountType,
 	}
 
 	c.JSON(http.StatusOK, gin.H{"profile information": UserProfile})
@@ -266,11 +263,9 @@ func DeleteAccount(c *gin.Context) {
 		return
 	}
 
-	useID := true
 	idFl, ok := information["id"].(float64)
 	if !ok {
 		idFl = 0
-		useID = false
 	}
 	id := int(idFl)
 
@@ -280,7 +275,7 @@ func DeleteAccount(c *gin.Context) {
 	}
 
 	email, ok := information["email"].(string)
-	if !ok && !useID {
+	if !ok {
 		log.Println("Incorrectly provided information about the user")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Error unable to delete an account with the given information"})
 		return
