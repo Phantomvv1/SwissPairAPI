@@ -14,19 +14,19 @@ import (
 )
 
 type Tournament struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	OwnerID   int       `json:"owner_id"`
-	Status    int       `json:"status"`
-	Start     time.Time `json:"start"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	ID        int        `json:"id"`
+	Name      string     `json:"name"`
+	OwnerID   int        `json:"owner_id"`
+	Status    int        `json:"status"`
+	Start     time.Time  `json:"start"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
 const (
 	StatusPending = iota + 1
 	StatusActive
-	FinishedStatus
+	StatusFinished
 )
 
 func (t *Tournament) GetTournament(conn *pgx.Conn) error {
@@ -37,7 +37,7 @@ func (t *Tournament) GetTournament(conn *pgx.Conn) error {
 
 func (t *Tournament) GetTournamentAdmin(conn *pgx.Conn) error {
 	err := conn.QueryRow(context.Background(), "select name, owner_id, status, start, created_at, updated_at from tournaments where id = $1",
-		t.ID).Scan(&t.Name, &t.OwnerID, &t.Status, &t.Start, &t.CreatedAt, &t.UpdatedAt)
+		t.ID).Scan(&t.Name, &t.OwnerID, &t.Status, &t.Start, t.CreatedAt, t.UpdatedAt)
 	return err
 }
 
@@ -329,4 +329,103 @@ func DeleteTournament(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, nil)
+}
+
+func GetAllTournaments(c *gin.Context) {
+	conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to connect to the database"})
+		return
+	}
+	defer conn.Close(context.Background())
+
+	rows, err := conn.Query(context.Background(), "select id, name, owner_id, status, start from tournaments")
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the information about the tournaments from the database"})
+		return
+	}
+
+	var tournaments []Tournament
+	for rows.Next() {
+		t := Tournament{}
+		err = rows.Scan(&t.ID, &t.Name, &t.OwnerID, &t.Status, &t.Start)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error working with the tournaments"})
+			return
+		}
+
+		tournaments = append(tournaments, t)
+	}
+
+	if rows.Err() != nil {
+		log.Println(rows.Err())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error working with the tournaments' information"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tournaments": tournaments})
+}
+
+func GetTournamentsWithStatus(c *gin.Context) {
+	var information map[string]string
+	json.NewDecoder(c.Request.Body).Decode(&information)
+
+	status, ok := information["status"]
+	if !ok {
+		log.Println("Incorrectly provided status of the tournament")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error incorrectly provided status of the tournament"})
+		return
+	}
+
+	realStatus := 0
+	switch status {
+	case "pending":
+		realStatus = StatusPending
+	case "active":
+		realStatus = StatusActive
+	case "finished":
+		realStatus = StatusFinished
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error invalid status type"})
+		return
+	}
+
+	conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to connect to the database"})
+		return
+	}
+	defer conn.Close(context.Background())
+
+	rows, err := conn.Query(context.Background(), "select id, name, owner_id, start from tournaments t where t.status = $1", realStatus)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the information about the tournaments from the database"})
+		return
+	}
+
+	var tournaments []Tournament
+	for rows.Next() {
+		t := Tournament{}
+		err = rows.Scan(&t.ID, &t.Name, &t.OwnerID, &t.Status, &t.Start)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error working with the tournaments"})
+			return
+		}
+
+		tournaments = append(tournaments, t)
+	}
+
+	if rows.Err() != nil {
+		log.Println(rows.Err())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error working with the tournaments' information"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tournaments": tournaments})
 }
