@@ -21,7 +21,7 @@ type Profile struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
-	Type  int    `json:"type"`
+	Type  int    `json:"type,omitempty"`
 }
 
 const (
