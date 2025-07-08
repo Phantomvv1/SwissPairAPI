@@ -3,6 +3,7 @@ package tournament
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	. "github.comPhantomvv1/SwissPairAPI/internal/auth"
+	. "github.comPhantomvv1/SwissPairAPI/internal/emails"
 )
 
 type Tournament struct {
@@ -216,6 +218,81 @@ func UpdateTournament(c *gin.Context) { // test
 			return
 		}
 	}
+
+	rows, err := conn.Query(context.Background(), "select user_id from players p where p.tournament_id = $1", tournamentID)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the email of the user you removed from the database"})
+		return
+	}
+
+	var userIDs []interface{}
+	for rows.Next() {
+		id := 0
+		err = rows.Scan(&id)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the ids of the users that take part in this tournament"})
+			return
+		}
+
+		userIDs = append(userIDs, id)
+	}
+
+	if rows.Err() != nil {
+		log.Println(rows.Err())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error working with the ids of the people in this tournament"})
+		return
+	}
+
+	query := "select email from authentication a where a.id in ("
+	for i := range userIDs {
+		query += "$" + fmt.Sprintf("%d", i+1)
+
+		if i == len(userIDs)-1 {
+			query += ")"
+		} else {
+			query += ", "
+		}
+	}
+
+	rows, err = conn.Query(context.Background(), query, userIDs...)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the emails of the people that play in this tournament"})
+		return
+	}
+
+	emails := make([]string, 0)
+	for rows.Next() {
+		email := ""
+		err = rows.Scan(&email)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error working with the emails"})
+			return
+		}
+
+		emails = append(emails, email)
+	}
+
+	if rows.Err() != nil {
+		log.Println(rows.Err())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while working with the emails"})
+		return
+	}
+
+	tournamentName := ""
+	err = conn.QueryRow(context.Background(), "select name from tournaments t where t.id = $1", tournamentID).Scan(&tournamentName)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the name of the tournament from the database"})
+		return
+	}
+
+	NotifyChangeEmail(emails, tournamentName)
+
+	c.JSON(http.StatusOK, nil)
 }
 
 func GetTournament(c *gin.Context) { // test

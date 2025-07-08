@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	. "github.comPhantomvv1/SwissPairAPI/internal/auth"
+	. "github.comPhantomvv1/SwissPairAPI/internal/emails"
 	. "github.comPhantomvv1/SwissPairAPI/internal/tournament"
 )
 
@@ -237,6 +238,24 @@ func RemoveUserFromTournament(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to remove the user from this tournament"})
 		return
 	}
+
+	userEmail := ""
+	err = conn.QueryRow(context.Background(), "select email from authentication a where a.id = $1", userID).Scan(&userEmail)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the email of the user you removed from the database"})
+		return
+	}
+
+	tournamentName := ""
+	err = conn.QueryRow(context.Background(), "select name from tournaments t where t.id = $1", tournamentID).Scan(&tournamentName)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to get the name of the tournament from the database"})
+		return
+	}
+
+	RemoveEmail(userEmail, tournamentName)
 
 	c.JSON(http.StatusOK, nil)
 }
