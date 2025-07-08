@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -144,16 +145,13 @@ func CreatePlayer(c *gin.Context) {
 }
 
 func GetPlayersForTournament(c *gin.Context) {
-	var information map[string]int
-	json.NewDecoder(c.Request.Body).Decode(&information) // tournamentID
-
-	tournamentID, ok := information["tournamentID"]
-	if !ok {
-		log.Println("Incorrectly provided id of the tournament")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Error incorrectly provided id of the tournament"})
+	tournamentIDS := c.Param("tournamentID")
+	tournamentID, err := strconv.Atoi(tournamentIDS)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to parse the id of the tournament"})
 		return
 	}
-
 	conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Println(err)

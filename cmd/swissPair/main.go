@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	. "github.comPhantomvv1/SwissPairAPI/internal/auth"
 	. "github.comPhantomvv1/SwissPairAPI/internal/players"
+	. "github.comPhantomvv1/SwissPairAPI/internal/rounds"
 	. "github.comPhantomvv1/SwissPairAPI/internal/tournament"
 )
 
@@ -28,8 +29,12 @@ func main() {
 
 	p := r.Group("/player")
 	p.POST("/", CreatePlayer)
-	p.POST("/get", GetPlayersForTournament)
+	p.POST("/:tournamentID", GetPlayersForTournament)
 	p.DELETE("/", RemoveUserFromTournament)
+
+	ro := r.Group("/round")
+	ro.GET("/:tournamentID", GetAllRounds)
+	ro.POST("/", CreateRounds)
 
 	r.Run(":42069")
 }

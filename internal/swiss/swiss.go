@@ -2,8 +2,18 @@ package swiss
 
 type Player struct {
 	Id       int64
-	Score    int64
+	Score    float64
 	Opponent map[int64]struct{} // Opponents encountered before
+}
+
+func GetIndexOfPlayer(players []Player, id int) int {
+	for i, player := range players {
+		if int(player.Id) == id {
+			return i
+		}
+	}
+
+	return -1
 }
 
 // pickTablePlayer calculates the arrangement of players in a Swiss Tournament
