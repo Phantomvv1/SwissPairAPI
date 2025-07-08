@@ -255,7 +255,12 @@ func RemoveUserFromTournament(c *gin.Context) {
 		return
 	}
 
-	RemoveEmail(userEmail, tournamentName)
+	err = RemoveEmail(userEmail, tournamentName)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error sending an email to the user"})
+		return
+	}
 
 	c.JSON(http.StatusOK, nil)
 }

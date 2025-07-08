@@ -290,7 +290,12 @@ func UpdateTournament(c *gin.Context) { // test
 		return
 	}
 
-	NotifyChangeEmail(emails, tournamentName)
+	err = NotifyChangeEmail(emails, tournamentName)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error unable to send email to the users"})
+		return
+	}
 
 	c.JSON(http.StatusOK, nil)
 }
